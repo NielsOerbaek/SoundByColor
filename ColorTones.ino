@@ -1,3 +1,4 @@
+#include <Tone.h>
 #include <Wire.h>
 #include "Adafruit_TCS34725.h"
 
@@ -12,7 +13,13 @@
 // Adafruit_TCS34725 tcs = Adafruit_TCS34725();
 
 /* Initialise with specific int time and gain values */
-Adafruit_TCS34725 tcs = Adafruit_TCS34725(TCS34725_INTEGRATIONTIME_101MS, TCS34725_GAIN_1X);
+Adafruit_TCS34725 tcs = Adafruit_TCS34725(TCS34725_INTEGRATIONTIME_50MS, TCS34725_GAIN_1X);
+
+Tone tone1;
+Tone tone2;
+
+/* Variables used to hold color values */
+uint16_t r, g, b, c, colorTemp, lux;
 
 //Knobs
 const int KNOB1_PIN = 0;
@@ -21,11 +28,11 @@ const int KNOB3_PIN = 2;
 const int BUTTON_PIN = 3;
 const int BUTTON_LED_PIN = 8;
 
-const int AMP1_PIN = 9;
-const int AMP2_PIN = 10 ;
+const int SPEAKER1_PIN = 9;
+const int SPEAKER2_PIN = 10;
 
 // min and max values of synth parameters to map AutoRanged analog inputs to
-const int MIN_SPEED = 100;
+const int MIN_SPEED = 50;
 const int MAX_SPEED = 500;
 
 const int MIN_DECAY = 10;
@@ -41,6 +48,9 @@ const int arp_steps[12] = {0,1,2,1,0,1,2,1,0,1,2,1};
 void setup(void) {
   Serial.begin(9600);
 
+  tone1.begin(SPEAKER1_PIN);
+  tone2.begin(SPEAKER2_PIN);
+
   if (tcs.begin()) {
     Serial.println("Found sensor");
   } else {
@@ -50,21 +60,8 @@ void setup(void) {
 }
 
 void loop(void) {
-  uint16_t r, g, b, c, colorTemp, lux;
 
-  tcs.getRawData(&r, &g, &b, &c);
-  colorTemp = tcs.calculateColorTemperature(r, g, b);
-  lux = tcs.calculateLux(r, g, b);
-
-  if (false) {
-    Serial.print("Color Temp: "); Serial.print(colorTemp, DEC); Serial.print(" K - ");
-    Serial.print("Lux: "); Serial.print(lux, DEC); Serial.print(" - ");
-    Serial.print("R: "); Serial.print(r, DEC); Serial.print(" ");
-    Serial.print("G: "); Serial.print(g, DEC); Serial.print(" ");
-    Serial.print("B: "); Serial.print(b, DEC); Serial.print(" ");
-    Serial.print("C: "); Serial.print(c, DEC); Serial.print(" ");
-    Serial.println(" ");
-  }
+  readColorValues();
 
   if (analogRead(BUTTON_PIN) > 1020) {
     digitalWrite(BUTTON_LED_PIN, HIGH);
@@ -78,25 +75,25 @@ void loop(void) {
         playTwoNotes(vs[arp_steps[i]], vs[(arp_steps[i]+1)%3], false); 
       }
     }
-    /*
-    playNote(r, false);
-    playNote(g, false);
-    playNote(b, true);
-    */
-    /*
-    l = getLength();
-    tone(9, getNote(r), l);
-    delay(l);
-    l = getLength();
-    tone(9, getNote(g), l);
-    delay(l);
-    l = getLength();
-    tone(9, getNote(b), l);
-    delay(l - 100);
-    */
   }
   else {
     digitalWrite(BUTTON_LED_PIN, LOW);
+  }
+}
+
+void readColorValues() {
+  tcs.getRawData(&r, &g, &b, &c);
+  colorTemp = tcs.calculateColorTemperature(r, g, b);
+  lux = tcs.calculateLux(r, g, b);
+
+  if (false) {
+    Serial.print("Color Temp: "); Serial.print(colorTemp, DEC); Serial.print(" K - ");
+    Serial.print("Lux: "); Serial.print(lux, DEC); Serial.print(" - ");
+    Serial.print("R: "); Serial.print(r, DEC); Serial.print(" ");
+    Serial.print("G: "); Serial.print(g, DEC); Serial.print(" ");
+    Serial.print("B: "); Serial.print(b, DEC); Serial.print(" ");
+    Serial.print("C: "); Serial.print(c, DEC); Serial.print(" ");
+    Serial.println(" ");
   }
 }
 
@@ -106,8 +103,9 @@ void playNote(int note, boolean last_note) {
     if(false) {
       Serial.println(note_l);
     }
-    tone(AMP1_PIN, getNote(note), note_l);
-    if (last_note) { delay(l-100); }
+    tone1.play(getNote(note), note_l);
+    tone2.play(getNote(note), note_l);
+    if (last_note) { delay(l-50); }
     else { delay(l); }
 }
 
@@ -117,9 +115,9 @@ void playTwoNotes(int note1, int note2, boolean last_note) {
     if(false) {
       Serial.println(note_l);
     }
-    tone(AMP1_PIN, getNote(note1), note_l);
-    tone(AMP2_PIN, getNote(note2), note_l);
-    if (last_note) { delay(l-100); }
+    tone1.play(getNote(note1), note_l);
+    tone2.play(getNote(note2), note_l);
+    if (last_note) { delay(l-50); }
     else { delay(l); }
 }
 
@@ -169,7 +167,7 @@ int getLength() {
 }
 
 int getNote(int sensor_value) {
-  int v = sensor_value / 4;
+  int v = sensor_value/2;
   int num_notes = sizeof(all_tones) / sizeof(float);
   for (int i = 1; i < num_notes; i++) {
     if (v >= all_tones[i - 1] && v < all_tones[i]) {
